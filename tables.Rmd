@@ -1,0 +1,38 @@
+---
+title: "Untitled"
+author: "Laurenz Lammer"
+date: "2025-05-17"
+output: html_document
+---
+
+# RoB tables
+
+```{r echo=FALSE}
+library(flextable)
+library(tidyverse)
+
+set_flextable_defaults(font.family = "Times New Roman", font.size = 12)
+# set working directory 
+setwd("C:\\Users\\Lenovo\\Documents\\Oxyfoxy")
+# load dfs
+df1 <- read.csv("outcome1.csv", )
+df2 <- read.csv("outcome2.csv", )
+
+# only keep one row per record
+df1 <- df1[!duplicated(df1[, c("Authors", "Publication.Date")]), ]
+df2 <- df2[!duplicated(df2[, c("Authors", "Publication.Date")]), ]
+
+# create flextable for primary outcome
+flextable(df1, col_keys = c("report", "Study.Participation.RoB", "Study.Attrition.RoB", "Education.measurement.RoB", "PD.measurement.RoB", "Study.confounding.RoB", "Statistical.Analysis.and.Reporting.RoB", "Overall")) %>%
+  theme_vanilla() %>%
+  set_header_labels(Study.Participation.RoB = "Study Participation", Study.Attrition.RoB = "Study Attrition", Education.measurement.RoB = "Education Measurement", PD.measurement.RoB = "PD Measurement", Study.confounding.RoB = "Confounding", Statistical.Analysis.and.Reporting.RoB = "Statistical Analysis and Reporting", Overall = "Overall RoB") %>% 
+  add_header_row(values = "Risk-of-bias judgment for each of six domains of bias, and for the overall risk of bias of studies on our primary outcome", colwidths = 8) %>%
+  add_footer_lines(values = c("RoB = risk of bias; PD = parkinson's disease \n Because they reported data from the same study as other reports, Fardell 2020, Huang 2023, Li 2024, Li 2025, Wirdefeldt 2005 were not included in the meta-analysis."))
+
+# create flextable for secondary outcome
+flextable(df2, col_keys = c("report", "Study.Participation.RoB", "Study.Attrition.RoB", "Education.measurement.RoB", "PD.measurement.RoB", "Study.confounding.RoB", "Statistical.Analysis.and.Reporting.RoB", "Overall")) %>%
+  theme_vanilla() %>%
+  set_header_labels(Study.Participation.RoB = "Study Participation", Study.Attrition.RoB = "Study Attrition", Education.measurement.RoB = "Education Measurement", PD.measurement.RoB = "PD Measurement", Study.confounding.RoB = "Confounding", Statistical.Analysis.and.Reporting.RoB = "Statistical Analysis and Reporting", Overall = "Overall RoB") %>% 
+  add_header_row(values = "Risk-of-bias judgment for each of six domains of bias, and for the overall risk of bias of studies on our secondary outcome", colwidths = 8) %>%
+  add_footer_lines(values = c("RoB = risk of bias; PD = parkinson's disease \n Sunwoo 2016 and Jeong 2022 are based on the same registry."))
+```
