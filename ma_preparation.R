@@ -7,6 +7,7 @@ library(meta)
 library(dmetar)
 library(metasens)
 library(robvis)
+library(ggplot2)
 
 # set working directory and read in the results table
 setwd("C:\\Users\\Lenovo\\Documents\\Oxyfoxy")
@@ -18,6 +19,8 @@ year_group_diff <- 5
 level_factor <- 0.5
 # define the value of rho for the aggregation of multiple results in the same study
 rho_val <- 0.6
+# define the baseline risk of PD
+baseline_risk <- 0.0165 # this is based on Elbaz et al. 2002
 
 # load the extracted data
 data <- read_xlsx("extractions_condensed.xlsx")
@@ -25,7 +28,7 @@ data <- read_xlsx("extractions_condensed.xlsx")
 data$Authors <- sub("[, ].*$", "", data$Authors)
 # turn the Authors field for de Oliveira Souza et al. to de Oliveira Souza
 data[data$Authors == "de", "Authors"] <- "de Oliveira Souza"
-data[,38:43] <- lapply(data[,38:43], function(x) sub("\\[.*$", "", x))
+data[,c(42:47)] <- lapply(data[,42:47], function(x) sub("\\[.*$", "", x))
 names(data) <- sub("- Summary.*$", "RoB", names(data))
 # reduce to relevant cols
 df <- data[,c("Citation Name", "Authors", "Publication Date", "Key Questions", 
@@ -34,7 +37,9 @@ df <- data[,c("Citation Name", "Authors", "Publication Date", "Key Questions",
               "n_controls_high_ed", "n_cases_low_ed", "n_cases_high_ed",
               "beta", "SE", "p-value", "Study Participation RoB", "Study Attrition RoB", 
               "Education measurement RoB", "PD measurement RoB", "Study confounding RoB", 
-              "Statistical Analysis and Reporting RoB", "total sample size")]
+              "Statistical Analysis and Reporting RoB", "total sample size", "location", 
+              "country income category", "PD diagnostic criteria", "comparison", 
+              "Study type", "symptom_severity_assessment")]
 
 # save  this df 
 write.csv(df, "extractions_uncalculated.csv", row.names = F)
@@ -197,6 +202,9 @@ tiff(filename = paste0("traf_met_no_linked.tiff"), res = 600, units = "in", widt
 trafmet + theme(strip.text.y.left=element_text(angle = 0))
 dev.off()
 
+# turn "HIC" and "LMIC" into 0s and 1s
+df_meta_agg$country.income.category <- ifelse(df_meta_agg$country.income.category == "HIC", 0, 1)
+
 # save  this df 
 write.csv(df_meta_agg, "extractions_calculated.csv", row.names = F)
 # load the df 
@@ -240,6 +248,7 @@ metaanalyse <- function(dataframe, name){
   m.gen_sub_smoking <- update(m.gen, subgroup = smoking, tau.common = T)
   m.gen_sub_repr <- update(m.gen, subgroup = representative_pop, tau.common = T)
   m.gen_sub_assess <- update(m.gen, subgroup = all_pd_assessed, tau.common = T)
+  m.gen_sub_income <- update(m.gen, subgroup = country.income.category, tau.common = T)
   # produce and save a forest plot for the main and subgroup analyses
   tiff(filename = paste0("forest_", name, ".tiff"), res = 600, units = "in", width = 12, height = 7)
   meta::forest(m.gen, sortvar = TE, prediction = TRUE, print.tau2 = FALSE, 
@@ -274,13 +283,64 @@ metaanalyse <- function(dataframe, name){
   tiff(filename = paste0("lmeta_funnel_", name, ".tiff"), res = 600, units = "in", width = 12, height = 7)
   funnel.limitmeta(lmeta, shrunken = T)
   dev.off()
-  # calculate p-curve and save associated plot
-  tiff(filename = paste0("pcurve_", name, ".tiff"), res = 600, units = "in", width = 12, height = 7)
-  pcur <- pcurve(m.gen)
+  # calculate p-curve and save associated plots
+  tiff(filename = paste0("pcurve_", name, ".tiff"), res = 600, units = "in", width = 12, height = 12)
+  par(mfrow=c(2,1)) # allow both produced plots to be saved
+  # create backup variable if pcurve fails with few studies
+  pcur <- ""
+  pcur <- try(pcurve(m.gen, effect.estimation = T, 
+                     N = dataframe$total.sample.size))
   dev.off()
+  # prepare a dataframe to store the results of the meta-analyses
+  # sorry this is some dirty code
+  result_df <- data.frame(matrix(ncol = 11, nrow = 14))
+  colnames(result_df) <- c("model", "n", 	"OR", "t_z_value", 
+                           "p_value", "pred_interval",	"tau2", "I2", "Q", "df",	"p_value_q")
+  result_df$model <- c("m.gen", "m.gen_sub_smoking", "smoking0", "smoking1", "m.gen_sub_repr", "repr0", "repr1",
+                       "m.gen_sub_assess", "assess0", "assess1", "m.gen_sub_income", "income0", "income1", 
+                       "lmeta")
+  result_df[result_df$model %in% c("m.gen", "m.gen_sub_smoking", "m.gen_sub_repr", 
+                                   "m.gen_sub_assess", "m.gen_sub_income", 
+                                   "lmeta"), "n"] <- m.gen$k
+                       
+  result_df[result_df$model %in% c("m.gen", "m.gen_sub_smoking", "m.gen_sub_repr", 
+                                   "m.gen_sub_assess", "m.gen_sub_income"), "OR"] <- paste0(round(exp(m.gen$TE.random), digits = 2), " (",
+                                                       round(exp(m.gen$lower.random), digits = 2), " - ",
+                                                       round(exp(m.gen$upper.random), digits = 2), ")")
+  result_df[result_df$model %in% c("m.gen", "m.gen_sub_smoking", "m.gen_sub_repr", 
+                                   "m.gen_sub_assess", "m.gen_sub_income"), "pred_interval"] <- paste0(round(exp(m.gen$lower.predict), digits = 2), " - ",
+                                                       round(exp(m.gen$upper.predict), digits = 2))
+  result_df[result_df$model %in% c("m.gen", "m.gen_sub_smoking", "m.gen_sub_repr", 
+                                   "m.gen_sub_assess", "m.gen_sub_income"), "t_z_value"] <- m.gen$statistic.random
+  result_df[result_df$model %in% c("m.gen", "m.gen_sub_smoking", "m.gen_sub_repr", 
+                                   "m.gen_sub_assess", "m.gen_sub_income"), "p_value"] <- m.gen$pval.random
+  result_df[result_df$model == "m.gen", c("tau2", "I2", "Q", "df", "p_value_q")] <-
+    c(m.gen$tau2, m.gen$I2, m.gen$Q, m.gen$df.Q, m.gen$pval.Q)
+  meta_list <- list(m.gen_sub_assess, m.gen_sub_income, m.gen_sub_repr, m.gen_sub_smoking)
+  names(meta_list) <- c("m.gen_sub_assess", "m.gen_sub_income", "m.gen_sub_repr", "m.gen_sub_smoking")
+  for (i in seq_along(meta_list)){
+    obj <- meta_list[[i]]  
+    result_df[result_df$model == names(meta_list)[[i]], c("tau2", "I2", "Q", "df", "p_value_q")]  <- 
+      c(obj[["tau2.resid"]], obj[["I2.resid"]], obj[["Q.b.random"]], obj[["df.Q.b.random"]], obj[["pval.Q.b.random"]])
+  result_df[result_df$model == paste0(sub(".*_", "", names(meta_list)[[i]]), "0"), c("n", "OR", "t_z_value", "p_value", "pred_interval", "tau2", "I2", "Q", "df", "p_value_q")] <-
+      c(obj[["k.TE.w"]][[1]], paste0(round(exp(obj[["TE.random.w"]][[1]]), digits = 2), " (",
+                                     round(exp(obj[["lower.random.w"]][[1]]), digits = 2), " - ",
+                                     round(exp(obj[["upper.random.w"]][[1]]), digits = 2), ")"),
+        obj[["statistic.random.w"]][[1]], obj[["pval.random.w"]][[1]], paste0(round(exp(obj[["lower.predict.w"]][[1]]), digits = 2), " - ", round(exp(obj[["upper.predict.w"]][[1]]), digits = 2)),
+        obj[["tau2.w"]][[1]], obj[["I2.w"]][[1]], obj[["Q.w"]][[1]], obj[["df.Q.w"]][[1]], obj[["pval.Q.w"]][[1]])
+  result_df[result_df$model == paste0(sub(".*_", "", names(meta_list)[[i]]), "1"), c("n", "OR", "t_z_value", "p_value", "pred_interval", "tau2", "I2", "Q", "p_value_q")] <-
+    c(obj[["k.TE.w"]][[2]], paste0(round(exp(obj[["TE.random.w"]][[2]]), digits = 2), " (",
+                                   round(exp(obj[["lower.random.w"]][[2]]), digits = 2), " - ",
+                                   round(exp(obj[["upper.random.w"]][[2]]), digits = 2), ")"),
+      obj[["statistic.random.w"]][[2]], obj[["pval.random.w"]][[2]], paste0(round(exp(obj[["lower.predict.w"]][[2]]), digits = 2), " - ", round(exp(obj[["upper.predict.w"]][[2]]), digits = 2)),
+      obj[["tau2.w"]][[2]], obj[["I2.w"]][[2]], obj[["Q.w"]][[2]], obj[["pval.Q.w"]][[2]])
+  result_df[result_df$model == "lmeta", c("OR", "t_z_value", "p_value", "tau2", "I2", "Q", "df", "p_value_q")] <-
+    c(paste0(round(exp(lmeta$TE.adjust), digits = 2), " (", round(exp(lmeta$lower.adjust), digits = 2), " - ", round(exp(lmeta$lower.adjust), digits = 2), ")"),
+  lmeta$statistic.adjust, lmeta$pval.adjust, m.gen$tau2, m.gen$I2, lmeta$Q.small, 1, pchisq(lmeta$Q.small, df = 1, lower.tail = FALSE))
+  }
   # return the produced objects
-  to_return <- list(m.gen, m.gen_sub_smoking, m.gen_sub_repr, m.gen_sub_assess, lmeta, pcur)
-  names(to_return) <- c("ma", "smoking", "representative", "assessed", "lmeta", "pcurve")
+  to_return <- list(m.gen, m.gen_sub_smoking, m.gen_sub_repr, m.gen_sub_assess, m.gen_sub_income, lmeta, pcur)
+  names(to_return) <- c("ma", "smoking", "representative", "assessed", "income", "lmeta", "pcurve")
   return(to_return)
 }
 
@@ -291,7 +351,7 @@ main_results <- metaanalyse(dataframe = main, name = "main")
 outliers <- find.outliers(main_results$ma)
 
 # create a df without outliers
-no_outliers <- main[!(main$clustering %in% outliers$out.study.random),]
+no_outliers <- main[!(main$report %in% outliers$out.study.random),]
 
 # do a sensitivity analysis without outliers
 no_outliers_results <- metaanalyse(dataframe = no_outliers, name = "no_outliers")
@@ -301,7 +361,7 @@ only_or <- main[main$effect.type == "OR",]
 only_or_results <- metaanalyse(dataframe = only_or, name = "only_or")
 
 # do the same excluding studies using mendelian randomization
-no_mr <- main[!(main$clustering %in% c("Shi 2022", "Zhang 2022")),]
+no_mr <- main[!(main$report %in% c("Shi 2022", "Zhang 2022")),]
 no_mr_results <- metaanalyse(dataframe = no_mr, name = "no_mr")
 
 # do the same excluding studies with a high overall RoB
@@ -309,6 +369,27 @@ no_high_rob <- main[main$Overall != "high RoB",]
 no_high_rob_results <- metaanalyse(dataframe = no_high_rob, name = "no_high_rob")
 
 # lastly do a sensitivity analysis with only 1 Swedish register-based study
-one_reg <- main[!(main$clustering %in% c("Fardell 2020", "Wirdefeldt 2005")),]
+one_reg <- main[!(main$report %in% c("Fardell 2020", "Wirdefeldt 2005")),]
 one_reg_results <- metaanalyse(dataframe = one_reg, name = "one_reg")
+
+# calculate the risk of PD based on the OR from the meta-analysis and the baseline risk 
+absolute_risk <- ((baseline_risk * exp(main_results$ma$TE.random)) / 
+  (1 - baseline_risk + exp(main_results$ma$TE.random) * baseline_risk))*100
+ll_absolute_risk <- ((baseline_risk * exp(main_results$ma$lower.random)) / 
+                       (1 - baseline_risk + exp(main_results$ma$lower.random) * baseline_risk))*100
+ul_absolute_risk <- ((baseline_risk * exp(main_results$ma$upper.random)) / 
+                       (1 - baseline_risk + exp(main_results$ma$upper.random) * baseline_risk))*100
+
+risk_diff <- absolute_risk - baseline_risk*100
+ll_risk_diff <- ll_absolute_risk - baseline_risk*100
+ul_risk_diff <- ul_absolute_risk - baseline_risk*100
+
+risk_df <- data.frame(
+  level = c("mean", "upper", "lower"),
+  absolute = c(absolute_risk, ul_absolute_risk, ll_absolute_risk),
+  difference = c(risk_diff, ul_risk_diff, ll_risk_diff),
+  OR = c(exp(main_results$ma$TE.random), exp(main_results$ma$upper.random),
+         exp(main_results$ma$lower.random))
+)
+write.csv(risk_df, "risk_differences.csv", row.names = F)
 
