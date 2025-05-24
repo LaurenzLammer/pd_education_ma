@@ -2,37 +2,97 @@
 title: "Untitled"
 author: "Laurenz Lammer"
 date: "2025-05-17"
-output: html_document
+output:
+  html_document: default
+  pdf_document: default
+  word_document: default
 ---
-
-# RoB tables
 
 ```{r echo=FALSE}
 library(flextable)
 library(tidyverse)
 
-set_flextable_defaults(font.family = "Times New Roman", font.size = 12)
+set_flextable_defaults(font.family = "Times New Roman", font.size = 9)
 # set working directory 
 setwd("C:\\Users\\Lenovo\\Documents\\Oxyfoxy")
-# load dfs
+
+# load prepared dfs
 df1 <- read.csv("outcome1.csv", )
 df2 <- read.csv("outcome2.csv", )
 
-# only keep one row per record
-df1 <- df1[!duplicated(df1[, c("Authors", "Publication.Date")]), ]
-df2 <- df2[!duplicated(df2[, c("Authors", "Publication.Date")]), ]
+# round effect sizes to 2 decimal numbers
+df1[,c("effect", "LL", "UL")] <- round(df1[,c("effect", "LL", "UL")], digits = 2)
+# merge comparison, effect, LL, and UL into one cell for tabulating
+# first paste the contents per row
+df1$effects <- paste0(df1$comparison, ": ", df1$effect, " (", df1$LL, " - ", df1$UL,
+                      ")")
+# now merge the rows belonging to the same report
+df1 <- df1 %>%
+  group_by(report) %>%
+  mutate(effects = paste(unique(effects), collapse = "\n ")) %>%
+  ungroup()
 
-# create flextable for primary outcome
+# only keep one row per record
+df1 <- df1[!duplicated(df1[, "report"]), ]
+df2 <- df2[!duplicated(df2[, "report"]), ]
+
+# turn 0 and 1s into yes and nos
+df1$representative_pop <- ifelse(df1$representative_pop == 1, "yes", "no")
+df1$smoking <- ifelse(df1$smoking == 1, "yes", "no")
+df1$all_pd_assessed <- ifelse(df1$all_pd_assessed == 1, "yes", "no")
+
+# create descriptive flextable for primary outcome
+flextable(df1, col_keys = c("report", "Study.type", "location", "total.sample.size", "PD.diagnostic.criteria", "representative_pop", "all_pd_assessed", "smoking", "country.income.category", "effect.type", "effects")) %>%
+  theme_vanilla() %>%
+  flextable::width(j = 11, width = 5) %>%
+  set_header_labels(report = "Report", Study.type = "Study design", location = "Location", total.sample.size = "Sample size", PD.diagnostic.criteria = "Diagnostic criteria", representative_pop = "Representative sample", all_pd_assessed = "All participants examined", smoking = "Controlled for smoking", effect.type = "Effect measure", effects = "Effect", country.income.category = "Income category") %>% 
+  add_header_row(values = "Characteristics of the included studies for the primary outcome", colwidths = 11) %>%
+  add_footer_lines(values = c("ICD = International Classification of Diseases; UK PDS BB = UK Parkinson's Disease Society Brain Bank; MDS = Movement Disorder Society; Ward & Gibb = Research diagnostic criteria for Parkinson's disease by Ward & Gibb 1990; OR = odds ratio; HR = hazard ratio; SIR = standardized incidence ratio; PR = prevalence ratio; IVW = inverse variance weighted; WM = weighted median; S Mode = simple mode; W Mode = weighted mode; * = no education, did not complete primary, completed primary, secondary, or tertiary education"))
+
+# create descriptive flextable for primary outcome
+flextable(df2, col_keys = c("report", "location", "total.sample.size", "symptom_severity_assessment")) %>%
+  theme_vanilla() %>%
+  set_header_labels(report = "Report", location = "Location", total.sample.size = "Sample size", symptom_severity_assessment = "effect metric") %>% 
+  add_header_row(values = "Characteristics of the included studies for the secondary outcome", colwidths = 4) %>%
+  add_footer_lines(values = c("UPDRS III = Unified Parkinson's Disease Rating Scale motor subscale; H & Y = Hoehn & Yahr stage; BBS = Berg Balance Scale; LID HR = Levodopa-induced dyskinesia hazard ratio; "))
+
+
+# create RoB flextable for primary outcome
 flextable(df1, col_keys = c("report", "Study.Participation.RoB", "Study.Attrition.RoB", "Education.measurement.RoB", "PD.measurement.RoB", "Study.confounding.RoB", "Statistical.Analysis.and.Reporting.RoB", "Overall")) %>%
   theme_vanilla() %>%
   set_header_labels(Study.Participation.RoB = "Study Participation", Study.Attrition.RoB = "Study Attrition", Education.measurement.RoB = "Education Measurement", PD.measurement.RoB = "PD Measurement", Study.confounding.RoB = "Confounding", Statistical.Analysis.and.Reporting.RoB = "Statistical Analysis and Reporting", Overall = "Overall RoB") %>% 
   add_header_row(values = "Risk-of-bias judgment for each of six domains of bias, and for the overall risk of bias of studies on our primary outcome", colwidths = 8) %>%
   add_footer_lines(values = c("RoB = risk of bias; PD = parkinson's disease \n Because they reported data from the same study as other reports, Fardell 2020, Huang 2023, Li 2024, Li 2025, Wirdefeldt 2005 were not included in the meta-analysis."))
 
-# create flextable for secondary outcome
+# create RoB flextable for secondary outcome
 flextable(df2, col_keys = c("report", "Study.Participation.RoB", "Study.Attrition.RoB", "Education.measurement.RoB", "PD.measurement.RoB", "Study.confounding.RoB", "Statistical.Analysis.and.Reporting.RoB", "Overall")) %>%
   theme_vanilla() %>%
   set_header_labels(Study.Participation.RoB = "Study Participation", Study.Attrition.RoB = "Study Attrition", Education.measurement.RoB = "Education Measurement", PD.measurement.RoB = "PD Measurement", Study.confounding.RoB = "Confounding", Statistical.Analysis.and.Reporting.RoB = "Statistical Analysis and Reporting", Overall = "Overall RoB") %>% 
   add_header_row(values = "Risk-of-bias judgment for each of six domains of bias, and for the overall risk of bias of studies on our secondary outcome", colwidths = 8) %>%
   add_footer_lines(values = c("RoB = risk of bias; PD = parkinson's disease \n Sunwoo 2016 and Jeong 2022 are based on the same registry."))
+
+# create the GRADE evidence profile table
+# load data on risk differences
+risk_df <- read.csv("risk_differences.csv") 
+# prepare a df with the information
+evidence_data <- data.frame(
+  Outcome = c("risk of PD", "PD symptom severity"),
+  No_of_studies = c(24, 7),
+  study_design = c("observational studies", "observational studies"),
+  rob = c("serious", "serious"),
+  Inconsistency = c("very serious", "not serious"),
+  Indirectness = c("not serious", "not serious"),
+  Imprecision = c("not serious", "serious"),
+  other = c("none", "none"),
+  Effect_Estimate = c(paste0(round(risk_df[1, "OR"], digits = 2), " (", round(risk_df[3, "OR"], digits = 2), " - ", round(risk_df[2, "OR"], digits = 2), ")"), "better motor performance"),
+  effect_absolute = c(paste0(round(risk_df[1,"difference"], digits = 2), "% higher lifetime risk (from ", abs(round(risk_df[3, "difference"], digits = 2)), "","% lower risk to ", round(risk_df[2, "difference"], digits = 2), "% higher risk)"), ""),
+  Overall_certainty = c("very low", "low"),
+  Importance = c("critical", "important")
+)
+flextable(evidence_data) %>%
+  theme_vanilla() %>%
+  set_header_labels(No_of_studies = "No of studies", study_design = "Study design", rob = "Risk of bias", Effect_Estimate = "Effect of higher education",
+                  effect_absolute = "absolute effect difference", Overall_certainty = "Certainty") %>% 
+  add_header_row(values = "GRADE evidence profile", colwidths = 12) %>%
+  add_footer_lines(values = c("PD = parkinson's disease \n The provided effect measure is an odds ratio with its 95% confidence interval. The baseline risk is 1.65%."))
 ```
