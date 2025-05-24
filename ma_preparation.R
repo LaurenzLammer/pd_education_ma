@@ -286,13 +286,15 @@ metaanalyse <- function(dataframe, name){
   # calculate p-curve and save associated plots
   tiff(filename = paste0("pcurve_", name, ".tiff"), res = 600, units = "in", width = 12, height = 12)
   par(mfrow=c(2,1)) # allow both produced plots to be saved
-  # create backup variable if pcurve fails with few studies
-  pcur <- ""
+  # create backup variable if pcurve fails with too few studies
   pcur <- try(pcurve(m.gen, effect.estimation = T, 
-                     N = dataframe$total.sample.size))
+                     N = dataframe$total.sample.size), silent = TRUE)
+  if (inherits(pcur, "try-error")) {
+    pcur <- ""
+  }
   dev.off()
   # prepare a dataframe to store the results of the meta-analyses
-  # sorry this is some dirty code
+  # sorry this is some dirty code but i have no idea hoe else to extractthe results
   result_df <- data.frame(matrix(ncol = 11, nrow = 14))
   colnames(result_df) <- c("model", "n", 	"OR", "t_z_value", 
                            "p_value", "pred_interval",	"tau2", "I2", "Q", "df",	"p_value_q")
@@ -334,9 +336,25 @@ metaanalyse <- function(dataframe, name){
                                    round(exp(obj[["upper.random.w"]][[2]]), digits = 2), ")"),
       obj[["statistic.random.w"]][[2]], obj[["pval.random.w"]][[2]], paste0(round(exp(obj[["lower.predict.w"]][[2]]), digits = 2), " - ", round(exp(obj[["upper.predict.w"]][[2]]), digits = 2)),
       obj[["tau2.w"]][[2]], obj[["I2.w"]][[2]], obj[["Q.w"]][[2]], obj[["pval.Q.w"]][[2]])
+  }
   result_df[result_df$model == "lmeta", c("OR", "t_z_value", "p_value", "tau2", "I2", "Q", "df", "p_value_q")] <-
     c(paste0(round(exp(lmeta$TE.adjust), digits = 2), " (", round(exp(lmeta$lower.adjust), digits = 2), " - ", round(exp(lmeta$lower.adjust), digits = 2), ")"),
-  lmeta$statistic.adjust, lmeta$pval.adjust, m.gen$tau2, m.gen$I2, lmeta$Q.small, 1, pchisq(lmeta$Q.small, df = 1, lower.tail = FALSE))
+      lmeta$statistic.adjust, lmeta$pval.adjust, m.gen$tau2, m.gen$I2, lmeta$Q.small, 1, pchisq(lmeta$Q.small, df = 1, lower.tail = FALSE))
+  write.csv(result_df, file = paste0("results_df_", name, ".csv"), row.names = F)
+  # create a df to store the results of the p-curve analysis if it has been created
+  if (!is.character(pcur)) {
+    pcurve_df <- data.frame(matrix(nrow = 2, ncol = 12))
+    colnames(pcurve_df) <- c("n", "n_sig", "n_sub_0.025", "test", "pBinomial",  
+                             "zFull",	"pFull", "zHalf",	"pHalf", "Power_estimate",	"Evidential_value", "Effect_estimate")
+    pcurve_df[, c("n", "n_sig", "n_sub_0.025")] <- rep(c(pcur$kInput, pcur$kAnalyzed, pcur$kp0.25), each = 2)
+    pcurve_df$test <- c("right-skewness", "flatness")
+    pcurve_df[,c("pBinomial", "zFull",	"pFull", "zHalf",	"pHalf")] <- 
+      pcur$pcurveResults
+    pcurve_df$Power_estimate <- paste0(pcur$Power[[1]], " (", pcur$Power[[2]], " - ", pcur$Power[[3]], ")")
+    pcurve_df$Evidential_value <- c(pcur$EvidencePresent, pcur$EvidenceAbsent)
+    pcurve_df$Effect_estimate <- pcur$dEstimate
+    # save the df as a csv file
+    write.csv(pcurve_df, file = paste0("results_pcurve_", name, ".csv"), row.names = F)
   }
   # return the produced objects
   to_return <- list(m.gen, m.gen_sub_smoking, m.gen_sub_repr, m.gen_sub_assess, m.gen_sub_income, lmeta, pcur)
@@ -392,4 +410,3 @@ risk_df <- data.frame(
          exp(main_results$ma$lower.random))
 )
 write.csv(risk_df, "risk_differences.csv", row.names = F)
-
