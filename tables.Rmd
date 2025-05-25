@@ -8,7 +8,9 @@ output:
   word_document: default
 ---
 
-```{r echo=FALSE}
+```{r echo=FALSE, results='asis'}
+library(officer)
+library(magick)
 library(flextable)
 library(tidyverse)
 
@@ -94,5 +96,37 @@ flextable(evidence_data) %>%
   set_header_labels(No_of_studies = "No of studies", study_design = "Study design", rob = "Risk of bias", Effect_Estimate = "Effect of higher education",
                   effect_absolute = "absolute effect difference", Overall_certainty = "Certainty") %>% 
   add_header_row(values = "GRADE evidence profile", colwidths = 12) %>%
-  add_footer_lines(values = c("PD = parkinson's disease \n The provided effect measure is an odds ratio with its 95% confidence interval. The baseline risk is 1.65%."))
+  add_footer_lines(values = c("PD = parkinson's disease \n The provided effect measure is an odds ratio with its 95% confidence interval. The baseline risk is 1.65%.")) %>%
+  flextable::compose(i = 1, j = 11, value = as_paragraph(as_image(src = "GRADE_very_low.png", width = 0.8, height = 0.8), "very low"), part = "body") %>%
+  flextable::compose(i = 2, j = 11, value = as_paragraph(as_image(src = "GRADE_low.png", width = 0.8, height = 0.8), "low"), part = "body") %>%
+  align(j = 11, align = "center", part = "body")
+
+# create tables for meta-analysis and p-curve analysis results
+titles <- c("of all studies", "excluding outliers", "excluding studies reporting other effect measures than odds ratios", "excluding mendelian randomization studies", "excluding studies with a high risk of bias", "including only one Swedish register-based study")
+df_names <- c("main", "no_outliers", "only_or", "no_mr", "no_high_rob", "one_reg")
+tables <- list()
+for (ma in seq_along(titles)){
+  results <- read.csv(paste0("results_df_", df_names[[ma]],  ".csv"))
+  # round values for tabulating
+  results[,c("t_z_value", "p_value", "tau2", "I2", "Q", "p_value_q")] <-
+    round(results[,c("t_z_value", "p_value", "tau2", "I2", "Q", "p_value_q")], digits = 3)
+  # make I^2 a percentage value
+  results$I2 <- results$I2*100
+  tables[[ma]] <- flextable(results) %>%
+    theme_vanilla() %>%
+    set_header_labels(model = "Analysis", n = "n studies", OR = "OR (95% CI)", t_z_value = "t-/z-value", p_value = "p-value", pred_interval = "prediction interval", tau2 = "tau²", I2 = "I² (%)", Q = "Q / Q'-Q", p_value_q = "p-value of Q") %>% 
+    add_header_row(values = paste0("Results of meta-analyses ", titles[[ma]]), colwidths = 11) %>%
+    flextable::width(j = 3, width = 2) %>%
+    add_footer_lines(values = c("OR (95% CI): Odds ratio with 95% confidence interval (adjusted for limit meta-analysis row);  t/z-value: z-value for limit meta-analysis, t-value for all others; p-value: p-value of the effect of education; tau² / I²: measures of heterogeneity for main analysis, measures of  residual heterogeneity for overall subgroup analyses, measures of heterogeneity within the subgroup for individual subgroups; Q/Q'-Q/df/p-value of Q = results of test of heterogeneity for main analysis and for individual subgroups, results of test for subgroup differences for overall subgroup analyses, results of test of small-study effects for limit meta-analysis \n df = degrees of freedom; HIC = high-income country, L/MIC = low- or middle-income country"))
+  try(pcurve_results <- read.csv(paste0("results_pcurve_", df_names[[ma]],  ".csv")))
+  try(tables[[ma + length(titles)]] <- flextable(pcurve_results) %>%
+  theme_vanilla() %>%
+    set_header_labels(n = "n of studies", n_sig = "n p < 0.05", n_sub_0.025 = "n p < 0.025", test = "Test",pBinomial = "p binomial", zFull = "z full", pFull = "p full", zHalf = "z half", pHalf = "p half", Power_estimate = "Power estimate", Evidential_value = "Evidential value", Effect_estimate = "Effect estimate") %>% 
+    add_header_row(values = paste0("Results of the p-curve-analysis of the meta-analysis ", titles[[ma]]), colwidths = 12) %>%  
+  add_footer_lines(values = c("Power estimate: The power estimate and 95% confidence interval;  Effect estimate: estimated true effect d; p binomial: p-value of the binomial test comparing significant p-values above and below 0.025; z/p full/half: effect measures and measures of significance of the pp-value based tests of right-skewness/flatness for the full sample (all significant p-values) and half of the sample (only p-values > 0.025) \n The test of right-skewness tests for evidential for an actual effect. The test of flatness tests for evidential value of an absence of a real effect. ")))
+}
+for(ft in tables){
+  # The print method for flextable works with the 'results = "asis"' chunk option in HTML output.
+  flextable_to_rmd(ft)
+}
 ```
