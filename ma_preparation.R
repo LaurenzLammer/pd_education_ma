@@ -1,3 +1,9 @@
+# this script prepares the data for meta-analyses, runs them and saves their results
+# the last chunk produces plots for GRADE-style certainty of evidence illustrations
+# the results can be illustrated using the accompanying tables.Rmd script
+# for executing it you will need to define a working directory
+# you can define variables used for calculations in the beginning of the script
+
 # load required packages
 library(readxl)
 library(epitools)
@@ -340,6 +346,12 @@ metaanalyse <- function(dataframe, name){
   result_df[result_df$model == "lmeta", c("OR", "t_z_value", "p_value", "tau2", "I2", "Q", "df", "p_value_q")] <-
     c(paste0(round(exp(lmeta$TE.adjust), digits = 2), " (", round(exp(lmeta$lower.adjust), digits = 2), " - ", round(exp(lmeta$lower.adjust), digits = 2), ")"),
       lmeta$statistic.adjust, lmeta$pval.adjust, m.gen$tau2, m.gen$I2, lmeta$Q.small, 1, pchisq(lmeta$Q.small, df = 1, lower.tail = FALSE))
+  # rename values in model col
+  result_df$model <- c("main", "subgroup smoking", "smoking not controlled", 
+                       "smoking controlled", "subgroup representative", 
+                       "not representative", "representative", 
+                       "subgroup PD assessment", "not all assessed", "all assessed", 
+                       "subgroup income", "HIC", "L/MIC", "limit meta-analysis")
   write.csv(result_df, file = paste0("results_df_", name, ".csv"), row.names = F)
   # create a df to store the results of the p-curve analysis if it has been created
   if (!is.character(pcur)) {
@@ -410,3 +422,55 @@ risk_df <- data.frame(
          exp(main_results$ma$lower.random))
 )
 write.csv(risk_df, "risk_differences.csv", row.names = F)
+
+# the end of the script produces GRADE style illustrations of (very) low certainty of evidence
+ 
+# Define circle centers and radius with a small gap between circles
+centers <- data.frame(x = c(1, 2.1, 3.2, 4.3), y = rep(1, 4))
+radius  <- 0.5
+
+png(filename = "GRADE_very_low.png", res = 300, width = 500, height = 300, bg = "white")
+par(mar = c(0, 0, 0, 0))
+# Prepare an empty plot with updated limits and aspect ratio
+plot(NA, xlim = c(0, 5), ylim = c(0, 2), asp = 1, xlab = "", ylab = "", axes = FALSE)
+
+# Draw the circles
+symbols(centers$x, centers$y, circles = rep(radius, 4), add = TRUE, inches = FALSE)
+
+# Add a cross to the first circle (horizontal and vertical line)
+segments(x0 = centers$x[1] - radius, y0 = centers$y[1],
+         x1 = centers$x[1] + radius, y1 = centers$y[1])
+segments(x0 = centers$x[1], y0 = centers$y[1] - radius,
+         x1 = centers$x[1], y1 = centers$y[1] + radius)
+
+# Add a horizontal line to the remaining circles
+for(i in 2:4) {
+  segments(x0 = centers$x[i] - radius, y0 = centers$y[i],
+           x1 = centers$x[i] + radius, y1 = centers$y[i])
+}
+dev.off()
+png(filename = "GRADE_low.png", res = 300, width = 500, height = 300, bg = "white")
+par(mar = c(0, 0, 0, 0))
+# Prepare an empty plot with updated limits and aspect ratio
+plot(NA, xlim = c(0, 5), ylim = c(0, 2), asp = 1, xlab = "", ylab = "", axes = FALSE)
+
+# Draw the circles
+symbols(centers$x, centers$y, circles = rep(radius, 4), add = TRUE, inches = FALSE)
+
+
+# Add crosses to the first two circles (horizontal and vertical lines)
+for(i in 1:2) {
+  # Horizontal line
+  segments(x0 = centers$x[i] - radius, y0 = centers$y[i],
+           x1 = centers$x[i] + radius, y1 = centers$y[i])
+  # Vertical line
+  segments(x0 = centers$x[i], y0 = centers$y[i] - radius,
+           x1 = centers$x[i], y1 = centers$y[i] + radius)
+}
+
+# Add a horizontal line to the remaining circles (3rd and 4th)
+for(i in 3:4) {
+  segments(x0 = centers$x[i] - radius, y0 = centers$y[i],
+           x1 = centers$x[i] + radius, y1 = centers$y[i])
+}
+dev.off()
