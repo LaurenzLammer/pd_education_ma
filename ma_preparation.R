@@ -5,18 +5,21 @@
 # you can define variables used for calculations in the beginning of the script
 
 # load required packages
-library(readxl)
-library(epitools)
-library(metaHelper)
-library(metafor)
-library(meta)
-library(dmetar)
-library(metasens)
-library(robvis)
-library(ggplot2)
+# uncomment installation if necessary
+# install.packages(c("readxl", "epitools", "metaHelper", "metafor", "meta", "dmetar", "metasens",
+#                    "robvis", "ggplot2"))
+library(readxl) # v ‘1.4.5’
+library(epitools) # v ‘0.5.10.1’
+library(metaHelper) # v ‘1.0.0’
+library(metafor) # v ‘4.8.0’
+library(meta) # v ‘8.0.2’
+library(dmetar) # v ‘0.1.0’
+library(metasens) # v ‘1.5.2’
+library(robvis) # v ‘0.3.0’
+library(ggplot2) # v ‘3.5.2’
 
 # set working directory and read in the results table
-setwd("C:\\Users\\Lenovo\\Documents\\Oxyfoxy")
+setwd("path_to_your_directory")
 
 # define variables
 # define how many years of schooling are equivaent to a low vs high group comparison
@@ -28,30 +31,8 @@ rho_val <- 0.6
 # define the baseline risk of PD
 baseline_risk <- 0.0165 # this is based on Elbaz et al. 2002
 
-# load the extracted data
-data <- read_xlsx("extractions_condensed.xlsx")
-# remove unnecessary parts of strings
-data$Authors <- sub("[, ].*$", "", data$Authors)
-# turn the Authors field for de Oliveira Souza et al. to de Oliveira Souza
-data[data$Authors == "de", "Authors"] <- "de Oliveira Souza"
-data[,c(42:47)] <- lapply(data[,42:47], function(x) sub("\\[.*$", "", x))
-names(data) <- sub("- Summary.*$", "RoB", names(data))
-# reduce to relevant cols
-df <- data[,c("Citation Name", "Authors", "Publication Date", "Key Questions", 
-              "representative_pop", "smoking", "all_pd_assessed", "effect", "LL", "UL",
-              "effect type", "direction", "unit", "n_controls_low_ed", 
-              "n_controls_high_ed", "n_cases_low_ed", "n_cases_high_ed",
-              "beta", "SE", "p-value", "Study Participation RoB", "Study Attrition RoB", 
-              "Education measurement RoB", "PD measurement RoB", "Study confounding RoB", 
-              "Statistical Analysis and Reporting RoB", "total sample size", "location", 
-              "country income category", "PD diagnostic criteria", "comparison", 
-              "Study type", "symptom_severity_assessment")]
-
-# save  this df 
-write.csv(df, "extractions_uncalculated.csv", row.names = F)
-# load the df and run the script from here
-df <- read.csv("extractions_uncalculated.csv", )
-
+# load the df from osf 
+df <- read.csv("https://osf.io/j9hp2/?action=download", sep = ",", header=TRUE)
 # align the direction of effect
 # select the relevant rows
 sel <- which(df$direction == 0)
@@ -121,22 +102,22 @@ df[df$Authors == "Llibre-Guerra", c("effect", "LL", "UL")] <-
 # if multiple of these domains have moderate RoB, it may also be deemed high RoB overall
 # all these studies were deemed not to be at high RoB, though
 df$Overall <- apply(df[, c("Education.measurement.RoB", "PD.measurement.RoB", 
-                      "Study.confounding.RoB", "Statistical.Analysis.and.Reporting.RoB")], 1, function(x) {
-  # If any column is "high", set to "high"
-  if ("high RoB" %in% x) {
-    "high RoB"
-    # If there is more than one "moderate" and no "high", return NA
-  } else if ("moderate RoB" %in% x) {
-    "moderate RoB"
-    # If all are "low", return "low"
-  } else if (all(x == "low RoB")) {
-    "low RoB"
-  } else {
-    NA
-  }
-})
+                           "Study.confounding.RoB", "Statistical.Analysis.and.Reporting.RoB")], 1, function(x) {
+                             # If any column is "high", set to "high"
+                             if ("high RoB" %in% x) {
+                               "high RoB"
+                               # If there is more than one "moderate" and no "high", return NA
+                             } else if ("moderate RoB" %in% x) {
+                               "moderate RoB"
+                               # If all are "low", return "low"
+                             } else if (all(x == "low RoB")) {
+                               "low RoB"
+                             } else {
+                               NA
+                             }
+                           })
 
-# concatenate the authors and oublication year cols to create an individual clustering col
+# concatenate the authors and publication year cols to create an individual clustering col
 df$report <- paste(df$Authors, df$Publication.Date, sep = " ")
 
 # order alphabetically
@@ -153,18 +134,18 @@ write.csv(df_sec, "outcome2.csv", row.names = F)
 
 # create a traffic light plot for RoB for each outcome and save it
 trafmet <- rob_traffic_light(data = df_meta[,c("report", "Study.Participation.RoB", 
-                                              "Study.Attrition.RoB", "Education.measurement.RoB", 
-                                              "PD.measurement.RoB", "Study.confounding.RoB", 
-                                              "Statistical.Analysis.and.Reporting.RoB", "Overall")], 
-                        tool = "ROB1", psize = 12)
+                                               "Study.Attrition.RoB", "Education.measurement.RoB", 
+                                               "PD.measurement.RoB", "Study.confounding.RoB", 
+                                               "Statistical.Analysis.and.Reporting.RoB", "Overall")], 
+                             tool = "ROB1", psize = 12)
 tiff(filename = paste0("traf_met_all.tiff"), res = 600, units = "in", width = 7, height = 12)
 trafmet + theme(strip.text.y.left=element_text(angle = 0))
 dev.off()
 
 trafsec <- rob_traffic_light(data = df_sec[,c("report", "Study.Participation.RoB", 
-                                               "Study.Attrition.RoB", "Education.measurement.RoB", 
-                                               "PD.measurement.RoB", "Study.confounding.RoB", 
-                                               "Statistical.Analysis.and.Reporting.RoB", "Overall")], 
+                                              "Study.Attrition.RoB", "Education.measurement.RoB", 
+                                              "PD.measurement.RoB", "Study.confounding.RoB", 
+                                              "Statistical.Analysis.and.Reporting.RoB", "Overall")], 
                              tool = "ROB1")
 tiff(filename = paste0("traf_sec.tiff"), res = 600, units = "in", width = 7, height = 12)
 trafsec + theme(strip.text.y.left=element_text(angle = 0))
@@ -185,7 +166,7 @@ df_meta$logOR <- log(df_meta$effect)
 # the function goes from OR limits to the SMD SE
 # to get the logOR SE it has to be additionally multiplied by pi/sqrt(3)
 df_meta$SElogOR <- SE.SMD_from_OR.CI(CI_low = df_meta$LL, CI_up = df_meta$UL,
-                                  sig_level = 0.05, two_tailed = TRUE) * pi/sqrt(3)
+                                     sig_level = 0.05, two_tailed = TRUE) * pi/sqrt(3)
 # bring data in proper format for aggregation
 df_meta <- escalc(data = df_meta, yi = logOR, sei = SElogOR)
 # the rho val can be modified at the top of the script
@@ -196,13 +177,13 @@ df_meta_agg$sei <- sqrt(df_meta_agg$vi)
 # remove all the references that are based on the same studies as others and 
 # have a lower RoB assessment
 # studies to exclude: Li et al. 2025, Li et al. 2024 and Huang et al. 2023
-df_meta_agg <- df_meta_agg[!(df_meta_agg$report %in% c("Li 2025", "Li 2024", "Huang 2023")),]
+df_meta_agg <- df_meta_agg[!(df_meta_agg$report %in% c("Li 2025", "Shi 2022", "Huang 2023")),]
 
 # create a traffic light plot for RoB for each outcome and save it only including studies used in the MA
 trafmet <- rob_traffic_light(data = df_meta_agg[,c("report", "Study.Participation.RoB", 
-                                               "Study.Attrition.RoB", "Education.measurement.RoB", 
-                                               "PD.measurement.RoB", "Study.confounding.RoB", 
-                                               "Statistical.Analysis.and.Reporting.RoB", "Overall")], 
+                                                   "Study.Attrition.RoB", "Education.measurement.RoB", 
+                                                   "PD.measurement.RoB", "Study.confounding.RoB", 
+                                                   "Statistical.Analysis.and.Reporting.RoB", "Overall")], 
                              tool = "ROB1", psize = 12)
 tiff(filename = paste0("traf_met_no_linked.tiff"), res = 600, units = "in", width = 7, height = 12)
 trafmet + theme(strip.text.y.left=element_text(angle = 0))
@@ -216,7 +197,7 @@ write.csv(df_meta_agg, "extractions_calculated.csv", row.names = F)
 # load the df 
 main <- read.csv("extractions_calculated.csv", )
 
-# prepare a function to perform calculatios done in every analysis
+# prepare a function to perform calculations done in every analysis
 metaanalyse <- function(dataframe, name){
   # dataframe is the respective dataframe to use
   # name gives the name of the analysis and is used to save results
@@ -247,9 +228,9 @@ metaanalyse <- function(dataframe, name){
                          "PD.measurement.RoB", "Study.confounding.RoB", 
                          "Statistical.Analysis.and.Reporting.RoB", "Overall")]
   rob_df$weights <- m.gen$w.random / (sum(m.gen$w.random)/100)
-  tiff(filename = paste0("rob_summary_", name, ".tiff"), res = 600, units = "in", width = 12, height = 7)
-  rob_summary(data = rob_df, tool = "ROB1", colour = "colourblind")
-  dev.off()
+  robplot <- rob_summary(data = rob_df, tool = "ROB1", colour = "colourblind")
+  ggsave(filename = paste0("rob_summary_", name, ".tiff"), plot = robplot, device = "tiff", dpi = 600,
+         width = 12, height = 7, units = "in")
   # calculate subgroup analyses
   m.gen_sub_smoking <- update(m.gen, subgroup = smoking, tau.common = T)
   m.gen_sub_repr <- update(m.gen, subgroup = representative_pop, tau.common = T)
@@ -310,14 +291,14 @@ metaanalyse <- function(dataframe, name){
   result_df[result_df$model %in% c("m.gen", "m.gen_sub_smoking", "m.gen_sub_repr", 
                                    "m.gen_sub_assess", "m.gen_sub_income", 
                                    "lmeta"), "n"] <- m.gen$k
-                       
+  
   result_df[result_df$model %in% c("m.gen", "m.gen_sub_smoking", "m.gen_sub_repr", 
                                    "m.gen_sub_assess", "m.gen_sub_income"), "OR"] <- paste0(round(exp(m.gen$TE.random), digits = 2), " (",
-                                                       round(exp(m.gen$lower.random), digits = 2), " - ",
-                                                       round(exp(m.gen$upper.random), digits = 2), ")")
+                                                                                            round(exp(m.gen$lower.random), digits = 2), " - ",
+                                                                                            round(exp(m.gen$upper.random), digits = 2), ")")
   result_df[result_df$model %in% c("m.gen", "m.gen_sub_smoking", "m.gen_sub_repr", 
                                    "m.gen_sub_assess", "m.gen_sub_income"), "pred_interval"] <- paste0(round(exp(m.gen$lower.predict), digits = 2), " - ",
-                                                       round(exp(m.gen$upper.predict), digits = 2))
+                                                                                                       round(exp(m.gen$upper.predict), digits = 2))
   result_df[result_df$model %in% c("m.gen", "m.gen_sub_smoking", "m.gen_sub_repr", 
                                    "m.gen_sub_assess", "m.gen_sub_income"), "t_z_value"] <- m.gen$statistic.random
   result_df[result_df$model %in% c("m.gen", "m.gen_sub_smoking", "m.gen_sub_repr", 
@@ -330,18 +311,18 @@ metaanalyse <- function(dataframe, name){
     obj <- meta_list[[i]]  
     result_df[result_df$model == names(meta_list)[[i]], c("tau2", "I2", "Q", "df", "p_value_q")]  <- 
       c(obj[["tau2.resid"]], obj[["I2.resid"]], obj[["Q.b.random"]], obj[["df.Q.b.random"]], obj[["pval.Q.b.random"]])
-  result_df[result_df$model == paste0(sub(".*_", "", names(meta_list)[[i]]), "0"), c("n", "OR", "t_z_value", "p_value", "pred_interval", "tau2", "I2", "Q", "df", "p_value_q")] <-
+    result_df[result_df$model == paste0(sub(".*_", "", names(meta_list)[[i]]), "0"), c("n", "OR", "t_z_value", "p_value", "pred_interval", "tau2", "I2", "Q", "df", "p_value_q")] <-
       c(obj[["k.TE.w"]][[1]], paste0(round(exp(obj[["TE.random.w"]][[1]]), digits = 2), " (",
                                      round(exp(obj[["lower.random.w"]][[1]]), digits = 2), " - ",
                                      round(exp(obj[["upper.random.w"]][[1]]), digits = 2), ")"),
         obj[["statistic.random.w"]][[1]], obj[["pval.random.w"]][[1]], paste0(round(exp(obj[["lower.predict.w"]][[1]]), digits = 2), " - ", round(exp(obj[["upper.predict.w"]][[1]]), digits = 2)),
         obj[["tau2.w"]][[1]], obj[["I2.w"]][[1]], obj[["Q.w"]][[1]], obj[["df.Q.w"]][[1]], obj[["pval.Q.w"]][[1]])
-  result_df[result_df$model == paste0(sub(".*_", "", names(meta_list)[[i]]), "1"), c("n", "OR", "t_z_value", "p_value", "pred_interval", "tau2", "I2", "Q", "p_value_q")] <-
-    c(obj[["k.TE.w"]][[2]], paste0(round(exp(obj[["TE.random.w"]][[2]]), digits = 2), " (",
-                                   round(exp(obj[["lower.random.w"]][[2]]), digits = 2), " - ",
-                                   round(exp(obj[["upper.random.w"]][[2]]), digits = 2), ")"),
-      obj[["statistic.random.w"]][[2]], obj[["pval.random.w"]][[2]], paste0(round(exp(obj[["lower.predict.w"]][[2]]), digits = 2), " - ", round(exp(obj[["upper.predict.w"]][[2]]), digits = 2)),
-      obj[["tau2.w"]][[2]], obj[["I2.w"]][[2]], obj[["Q.w"]][[2]], obj[["pval.Q.w"]][[2]])
+    result_df[result_df$model == paste0(sub(".*_", "", names(meta_list)[[i]]), "1"), c("n", "OR", "t_z_value", "p_value", "pred_interval", "tau2", "I2", "Q", "p_value_q")] <-
+      c(obj[["k.TE.w"]][[2]], paste0(round(exp(obj[["TE.random.w"]][[2]]), digits = 2), " (",
+                                     round(exp(obj[["lower.random.w"]][[2]]), digits = 2), " - ",
+                                     round(exp(obj[["upper.random.w"]][[2]]), digits = 2), ")"),
+        obj[["statistic.random.w"]][[2]], obj[["pval.random.w"]][[2]], paste0(round(exp(obj[["lower.predict.w"]][[2]]), digits = 2), " - ", round(exp(obj[["upper.predict.w"]][[2]]), digits = 2)),
+        obj[["tau2.w"]][[2]], obj[["I2.w"]][[2]], obj[["Q.w"]][[2]], obj[["pval.Q.w"]][[2]])
   }
   result_df[result_df$model == "lmeta", c("OR", "t_z_value", "p_value", "tau2", "I2", "Q", "df", "p_value_q")] <-
     c(paste0(round(exp(lmeta$TE.adjust), digits = 2), " (", round(exp(lmeta$lower.adjust), digits = 2), " - ", round(exp(lmeta$lower.adjust), digits = 2), ")"),
@@ -404,7 +385,7 @@ one_reg_results <- metaanalyse(dataframe = one_reg, name = "one_reg")
 
 # calculate the risk of PD based on the OR from the meta-analysis and the baseline risk 
 absolute_risk <- ((baseline_risk * exp(main_results$ma$TE.random)) / 
-  (1 - baseline_risk + exp(main_results$ma$TE.random) * baseline_risk))*100
+                    (1 - baseline_risk + exp(main_results$ma$TE.random) * baseline_risk))*100
 ll_absolute_risk <- ((baseline_risk * exp(main_results$ma$lower.random)) / 
                        (1 - baseline_risk + exp(main_results$ma$lower.random) * baseline_risk))*100
 ul_absolute_risk <- ((baseline_risk * exp(main_results$ma$upper.random)) / 
@@ -424,7 +405,7 @@ risk_df <- data.frame(
 write.csv(risk_df, "risk_differences.csv", row.names = F)
 
 # the end of the script produces GRADE style illustrations of (very) low certainty of evidence
- 
+
 # Define circle centers and radius with a small gap between circles
 centers <- data.frame(x = c(1, 2.1, 3.2, 4.3), y = rep(1, 4))
 radius  <- 0.5
