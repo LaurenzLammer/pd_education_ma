@@ -16,7 +16,7 @@ library(tidyverse) # v ‘2.0.0’
 
 set_flextable_defaults(font.family = "Times New Roman", font.size = 9)
 # set working directory 
-setwd("C:\\Users\\Lenovo\\Documents\\Oxyfoxy\\results")
+setwd("path_to_your_directory")
 
 # load prepared dfs
 df1 <- read.csv("outcome1.csv", )
