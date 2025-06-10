@@ -9,14 +9,14 @@ output:
 ---
 
 ```{r echo=FALSE, results='asis'}
-library(officer)
-library(magick)
-library(flextable)
-library(tidyverse)
+library(officer) # v ‘0.6.8’
+library(magick) # v ‘2.8.6’
+library(flextable) # v ‘0.9.7’
+library(tidyverse) # v ‘2.0.0’
 
 set_flextable_defaults(font.family = "Times New Roman", font.size = 9)
 # set working directory 
-setwd("C:\\Users\\Lenovo\\Documents\\Oxyfoxy")
+setwd("C:\\Users\\Lenovo\\Documents\\Oxyfoxy\\results")
 
 # load prepared dfs
 df1 <- read.csv("outcome1.csv", )
@@ -129,4 +129,6 @@ for(ft in tables){
   # The print method for flextable works with the 'results = "asis"' chunk option in HTML output.
   flextable_to_rmd(ft)
 }
+
+
 ```
