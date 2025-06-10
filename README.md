@@ -4,7 +4,7 @@ the scripts in this repository allow you to reproduce all figures and tables pre
 
 You may also modify the scripts to explore the data as you may wish. 
 
-It is important that you run xx before yy because yy uses the results of xx.
+It is important that you run meta_analysis.R before yy because tables.Rmd uses the results of meta_analysis.R.
 For this to be possible, you must supply both scripts with the same working directory where files can be saved and from they can be loaded again. 
 Please do so at the top of each script.
 
