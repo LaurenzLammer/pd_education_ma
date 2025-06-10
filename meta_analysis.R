@@ -176,7 +176,7 @@ df_meta_agg$sei <- sqrt(df_meta_agg$vi)
 
 # remove all the references that are based on the same studies as others and 
 # have a lower RoB assessment
-# studies to exclude: Li et al. 2025, Li et al. 2024 and Huang et al. 2023
+# studies to exclude: Li et al. 2025, Shi et al. 2022 and Huang et al. 2023
 df_meta_agg <- df_meta_agg[!(df_meta_agg$report %in% c("Li 2025", "Shi 2022", "Huang 2023")),]
 
 # create a traffic light plot for RoB for each outcome and save it only including studies used in the MA
@@ -372,7 +372,7 @@ only_or <- main[main$effect.type == "OR",]
 only_or_results <- metaanalyse(dataframe = only_or, name = "only_or")
 
 # do the same excluding studies using mendelian randomization
-no_mr <- main[!(main$report %in% c("Shi 2022", "Zhang 2022")),]
+no_mr <- main[!(main$report %in% c("Li 2024", "Zhang 2022")),]
 no_mr_results <- metaanalyse(dataframe = no_mr, name = "no_mr")
 
 # do the same excluding studies with a high overall RoB
