@@ -233,17 +233,13 @@ metaanalyse <- function(dataframe, name){
          width = 12, height = 7, units = "in")
   # identify influential cases and save related plots
   m.gen.inf <- InfluenceAnalysis(m.gen, random = T)
-  baujat <- plot(m.gen.inf, "baujat")
-  influence <- plot(m.gen.inf, "influence")
-  es <- plot(m.gen.inf, "es")
-  i2 <- plot(m.gen.inf, "i2")
-  ggsave(filename = paste0("baujat", name, ".tiff"), plot = baujat, device = "tiff", dpi = 600,
+  ggsave(filename = paste0("baujat_", name, ".tiff"), plot = m.gen.inf$BaujatPlot, device = "tiff", dpi = 600,
          width = 7, height = 7, units = "in")
-  ggsave(filename = paste0("influence", name, ".tiff"), plot = influence, device = "tiff", dpi = 600,
+  ggsave(filename = paste0("influence_", name, ".tiff"), plot = m.gen.inf$InfluenceCharacteristics, device = "tiff", dpi = 600,
          width = 7, height = 7, units = "in")
-  ggsave(filename = paste0("es", name, ".tiff"), plot = es, device = "tiff", dpi = 600,
+  ggsave(filename = paste0("es_", name, ".tiff"), plot = m.gen.inf$ForestEffectSize, device = "tiff", dpi = 600,
          width = 7, height = 7, units = "in")
-  ggsave(filename = paste0("i2", name, ".tiff"), plot = i2, device = "tiff", dpi = 600,
+  ggsave(filename = paste0("i2_", name, ".tiff"), plot = m.gen.inf$ForestI2, device = "tiff", dpi = 600,
          width = 7, height = 7, units = "in")
   # calculate subgroup analyses
   m.gen_sub_smoking <- update(m.gen, subgroup = smoking, tau.common = T)
