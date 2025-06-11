@@ -19,7 +19,7 @@ library(robvis) # v ‘0.3.0’
 library(ggplot2) # v ‘3.5.2’
 
 # set working directory and read in the results table
-setwd("C:\\Users\\Lenovo\\Documents\\Oxyfoxy\\results")
+setwd("path_to_your_directory")
 
 # define variables
 # define how many years of schooling are equivaent to a low vs high group comparison
