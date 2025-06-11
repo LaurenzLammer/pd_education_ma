@@ -19,7 +19,7 @@ library(robvis) # v ‘0.3.0’
 library(ggplot2) # v ‘3.5.2’
 
 # set working directory and read in the results table
-setwd("path_to_your_directory")
+setwd("C:\\Users\\Lenovo\\Documents\\Oxyfoxy\\results")
 
 # define variables
 # define how many years of schooling are equivaent to a low vs high group comparison
@@ -231,6 +231,20 @@ metaanalyse <- function(dataframe, name){
   robplot <- rob_summary(data = rob_df, tool = "ROB1", colour = "colourblind")
   ggsave(filename = paste0("rob_summary_", name, ".tiff"), plot = robplot, device = "tiff", dpi = 600,
          width = 12, height = 7, units = "in")
+  # identify influential cases and save related plots
+  m.gen.inf <- InfluenceAnalysis(m.gen, random = T)
+  baujat <- plot(m.gen.inf, "baujat")
+  influence <- plot(m.gen.inf, "influence")
+  es <- plot(m.gen.inf, "es")
+  i2 <- plot(m.gen.inf, "i2")
+  ggsave(filename = paste0("baujat", name, ".tiff"), plot = baujat, device = "tiff", dpi = 600,
+         width = 7, height = 7, units = "in")
+  ggsave(filename = paste0("influence", name, ".tiff"), plot = influence, device = "tiff", dpi = 600,
+         width = 7, height = 7, units = "in")
+  ggsave(filename = paste0("es", name, ".tiff"), plot = es, device = "tiff", dpi = 600,
+         width = 7, height = 7, units = "in")
+  ggsave(filename = paste0("i2", name, ".tiff"), plot = i2, device = "tiff", dpi = 600,
+         width = 7, height = 7, units = "in")
   # calculate subgroup analyses
   m.gen_sub_smoking <- update(m.gen, subgroup = smoking, tau.common = T)
   m.gen_sub_repr <- update(m.gen, subgroup = representative_pop, tau.common = T)
